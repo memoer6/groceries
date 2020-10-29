@@ -1,0 +1,135 @@
+swagger: "2.0"
+info:
+  description: "Service to manage grocery list"
+  version: "1.0.0"
+  title: "Grocery List"
+host: "localhost:8081"
+basePath: "/v1"
+tags:
+- name: "products"
+  description: "Manage the products of the grocery list"
+schemes:
+- "http"
+paths:
+  /products:
+    get:
+        tags:
+        - "products"
+        summary: "Returns the list of products in the catalog"
+        description: ""
+        operationId: "getProducts"
+        produces:
+        - "application/json"
+        parameters:
+        - name: "shop"
+          in: "query"
+          description: "Filter products to buy in grocery store"
+          required: false
+          type: "boolean"
+          default: false
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              type: "array"
+              items:
+                $ref: "#/definitions/Product"
+    post:
+      tags:
+      - "products"
+      summary: "Create a product into the catalog"
+      description: ""
+      operationId: "createProduct"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "Product object to create into the catalog"
+        required: true
+        schema:
+          $ref: "#/definitions/Product"  
+      responses:
+        201:
+            description: "Product was created successfully"
+            schema:
+              $ref: "#/definitions/Product"
+        400:
+          description: "Invalid product fields"
+  /products/{productName}:        
+    put:
+      tags:
+      - "products"
+      summary: "Update a product from the catalog"
+      description: ""
+      operationId: "updateProduct"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "path"
+        name: "productName"
+        type: "string"
+        description: "Product name of the object to update"
+        required: true
+      - in: "body"
+        name: "body"
+        description: "Product object with the new values"
+        required: true
+        schema:
+          $ref: "#/definitions/Product"  
+      responses:
+        200:
+          description: "Product was updated successfully"
+        400:
+          description: "Invalid product fields"
+        404:
+          description: "Product not found"
+    delete:
+      tags:
+      - "products"
+      summary: "Delete a product from the catalog"
+      description: ""
+      operationId: "deleteProduct"
+      parameters:
+      - in: "path"
+        name: "productName"
+        description: "Product name to delete"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: "Product was deleted successfully"
+        404:
+          description: "Product not found"
+ 
+
+definitions:
+  Product:
+    type: "object"
+    required:
+    - "name"
+    properties:
+      name:
+        type: "string"
+        example: "bread"
+      shoppingCart:
+        type: "boolean"
+        example: "false"
+        description: "included in the shoping list"
+  ApiResponse:
+    type: "object"
+    properties:
+      code:
+        type: "integer"
+        format: "int32"
+      type:
+        type: "string"
+      message:
+        type: "string"
+
+
+

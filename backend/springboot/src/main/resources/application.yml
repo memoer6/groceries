@@ -1,0 +1,16 @@
+
+#Spring Boot allows you to externalize your configuration so you can work with the same application code in different
+#environments. You can use properties files, YAML files, environment variables and command-line arguments to
+#externalize configuration. Property values can be injected directly into your beans using the @Value annotation,
+#accessed via Spring’s Environment abstraction or bound to structured objects.
+
+server:
+  port : 8081
+
+# We can use the H2 console to check that the DB is up and running, also for a user-friendly GUI for our data
+# entry. Let’s go ahead and enable it in application.properites
+spring:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
