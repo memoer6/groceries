@@ -49,6 +49,8 @@ def create_product():
   # silent – if set to True this method will fail silently and return None  
   data_json = request.get_json(silent=True)
   
+# TODO Merge the 2 methods below
+
   # Check that json object is included in payload
   if data_json is None:
     return make_response('Product name is required' , 400)  
@@ -58,7 +60,7 @@ def create_product():
   if name is None:
     return make_response('Product name is required' , 400)
   
-  # Check that product is not already registered
+  # Check that product is already registered
   # 'one' argument is like fetchone(): returns one row from the query. If the query returned no results, it returns None
   # db.execute takes a SQL query with ? placeholders for any user input, and a tuple of values to replace the
   # placeholders with. The database library will take care of escaping the values so you are not vulnerable to
@@ -66,6 +68,8 @@ def create_product():
   product = db.query_db('SELECT name FROM products WHERE name = ?', args=(name,), one=True)  
   if product is not None:
     return make_response('Product "{}" is already registered'.format(name) , 400)
+
+# TODO try to handle duplication check from error returned by insert command
 
   # Create product into database   
   sql = 'INSERT INTO products (name, shoppingCart) VALUES (?, ?)'
@@ -92,6 +96,8 @@ def delete_product(name):
   if product is None:
     return make_response('Product "{}" not found'.format(name), 404)
 
+# TODO try to handle not found from error returned by delete command
+
   # Delete product into database   
   db.run_db('DELETE FROM products WHERE name = ?', args=(name,))
   current_app.logger.info('Record {} was deleted'.format(name))
@@ -114,30 +120,32 @@ def update_product(name):
   if data_json is None:
     return make_response('No product fields are detected' , 400)    
   
-  # Check if product is registered
+   # Check if product is registered
   product = db.query_db('SELECT name FROM products WHERE name = ?', args=(name,), one=True)
   if product is None:
     return make_response('Product "{}" not found'.format(name), 404)
 
+# TODO try to handle not found from error returned by update command
+
   # Extract the properties to update and properties to discard
   mutable_properties = current_app.config['MUTABLE_PRODUCT_PROPERTIES']
-  accepted_properties, discarded_properties = [], []
+  properties_to_update, properties_rejected = [], []
   for prop in data_json.items():
     if prop[0] in mutable_properties:
-      accepted_properties.append(prop)
+      properties_to_update.append(prop)
     else:
-      discarded_properties.append(prop)  
+      properties_rejected.append(prop)  
 
   # No property to update
-  if len(accepted_properties) == 0:
+  if properties_to_update == []:
     return make_response('The requested product field(s) cannot be updated', 400)
 
   # Build SQL statement to update product
-  # column_placeholders represents the set of column names to set with ? placeholders for the SQL update statement
+  # column_names string represents the set of column names with ? placeholders for the SQL update statement
   column_names = ''
-  # column_values represents the values of the placeholder for the SQL update statement
+  # column_values represents the list of values of the placeholders for the SQL update statement
   column_values = []
-  for (prop_name, value) in accepted_properties:
+  for (prop_name, value) in properties_to_update:
     column_names += '{} = ?,'.format(prop_name) 
     column_values.append(value)
   column_names = column_names[:-1] #remove last comma
@@ -149,8 +157,8 @@ def update_product(name):
   db.run_db(sql, args=tuple(column_values))
 
   # Return response
-  updated_props = ','.join([ '"{}"'.format(k) for k,v in accepted_properties])
-  discarded_props = ','.join([ '"{}"'.format(k) for k,v in discarded_properties])
-  message = 'Product: "{}"\nFields updated: {}\nFields discarded: {}'.format(name, updated_props, discarded_props)
+  updated_props = ','.join([ '"{}"'.format(k) for k,v in properties_to_update])
+  discarded_props = ','.join([ '"{}"'.format(k) for k,v in properties_rejected])
+  message = 'Product: "{}"\nFields updated: {}\nFields not updated: {}'.format(name, updated_props, discarded_props)
   return make_response(message , 200)
   

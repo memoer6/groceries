@@ -113,6 +113,7 @@ def test_get_products_with_shop_set_true(client):
   assert len(resp.get_json()) == 1 
   assert resp.get_json()[0] == bread.to_dict()
 
+# TODO Include test sending 'shop' set to False
 
 # CREATE PRODUCT TESTS
 

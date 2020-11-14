@@ -1,23 +1,13 @@
-const express = require('express'),
-  app = express(),
-  port = 8081
 
+const express = require('express')
+// Node.js body parsing middleware.This middleware parse incoming request bodies in a middleware before your 
+// handlers. A new body object containing the parsed data is populated on the request object after the 
+// middleware (i.e. req.body).
+const bodyParser = require('body-parser')  
+const routes = require('./routes')
 
-const product1 = {
-  id: 1,
-  name: 'bread',
-  inCart: false
-}
-
-const product2 = {
-  id: 2,
-  name: 'butter',
-  inCart: true
-}
-
-const products = [
-  product1, product2
-]
+const app = express()
+const port = 8081  
 
 // An Express application is essentially a series of middleware function calls.
 // Middleware functions are functions that have access to the request object (req), the response object
@@ -25,10 +15,13 @@ const products = [
 // middleware function is commonly denoted by a variable named next.
 // If the current middleware function does not end the request-response cycle, it must call next() to pass
 // control to the next middleware function. Otherwise, the request will be left hanging.
+// Bind application-level middleware to an instance of the app object by using the app.use()
 
-// Bind application-level middleware to an instance of the app object by using the app.use() 
-// and app.METHOD() functions, where METHOD is the HTTP method of the request that the middleware 
-// function handles (such as GET, PUT, or POST) in lowercase
+
+// Returns middleware that only parses json and only looks at requests where the Content-Type header matches 
+// the type option. This parser accepts any Unicode encoding of the body and supports automatic inflation
+// of gzip and deflate encodings.
+app.use(bodyParser.json());
 
 // This example shows a middleware function with no mount path. The function is executed every time the app 
 // receives a request.
@@ -37,32 +30,12 @@ app.use(function (req, res, next) {
   next()
 })
 
-
-// Return the list of product in the catalog
-app.get('/v1/products', (req, res) => {
-  res.send(products)
-})
-
-// Add a new product to the catalog
-app.post('/v1/products', (req, res) => {
-})
-
-// Update an existing product in the catalog
-app.put('/v1/products/:productId', (req, res) => {
-  res.send(req.params)
-})
-
-// Delete a product from the catalog
-app.delete('/v1/products/:productId', (req, res) => {
-  res.send(req.params)
-})
-
-// Returns the list of products to buy
-app.get('/v1/products/shopping', (req, res) => {
-  res.send(products)
-})
-
+routes(app);
 app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`)
+  console.log(`Server listening at http://localhost:${port}`)
+})
+
+app.use((error, req, res, next)=> {
+  res.status(400).send(error)
 })
 
