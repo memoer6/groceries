@@ -6,6 +6,6 @@ DROP TABLE IF EXISTS products;
 
 CREATE TABLE products (
   name TEXT PRIMARY KEY,
-  shoppingCart BOOLEAN 
+  shopping_cart BOOLEAN 
 );
 

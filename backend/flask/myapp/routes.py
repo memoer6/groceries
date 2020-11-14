@@ -12,6 +12,7 @@
 
 from flask import jsonify, request, make_response, Blueprint, current_app
 from . import db
+import traceback
 
 #Instantiate blueprint 
 bp = Blueprint('grocery_list', __name__)
@@ -23,16 +24,17 @@ def get_products():
   Return the list of all products in the catalog
   ''' 
   current_app.logger.info('Request to retrieve all products in the catalog')
-  shop = request.args.get('shop', False)
+  shop = request.args.get('shop', 'false')
+  shop = (shop.lower() == 'true')
 
   # Get product list from database
   sql = 'SELECT * FROM products'
   products = db.query_db(sql)
 
-  # If query parameter "shop" is True, then only list products to buy in grocery store (shoppingCart = True)
+  # If query parameter "shop" is True, then only list products to buy in grocery store (shopping_cart = True)
   if shop:
     return make_response(jsonify(
-      [ product for product in products if product['shoppingCart'] == True ]),
+      [ product for product in products if product['shopping_cart'] == True ]),
       200
     )
   return make_response(jsonify(products) , 200)
@@ -49,38 +51,47 @@ def create_product():
   # silent – if set to True this method will fail silently and return None  
   data_json = request.get_json(silent=True)
   
-# TODO Merge the 2 methods below
-
-  # Check that json object is included in payload
-  if data_json is None:
+  # Check that json object is included in payload or "name" attribute is included in json object
+  if data_json is None or data_json.get('name', None) is None:
     return make_response('Product name is required' , 400)  
 
-  # Check that name attribute is included in json object  
-  name = data_json.get('name', None)
-  if name is None:
-    return make_response('Product name is required' , 400)
-  
-  # Check that product is already registered
-  # 'one' argument is like fetchone(): returns one row from the query. If the query returned no results, it returns None
-  # db.execute takes a SQL query with ? placeholders for any user input, and a tuple of values to replace the
-  # placeholders with. The database library will take care of escaping the values so you are not vulnerable to
-  # a SQL injection attack.
-  product = db.query_db('SELECT name FROM products WHERE name = ?', args=(name,), one=True)  
-  if product is not None:
-    return make_response('Product "{}" is already registered'.format(name) , 400)
-
-# TODO try to handle duplication check from error returned by insert command
+  name = data_json.get('name')
 
   # Create product into database   
-  sql = 'INSERT INTO products (name, shoppingCart) VALUES (?, ?)'
+  sql = 'INSERT INTO products (name, shopping_cart) VALUES (?, ?)'
   args = (data_json['name'], False)
-  rowid = db.run_db(sql, args)
+  try:
+    rowid = db.run_db(sql, args)
+  # Product is already registered  
+  except Exception as e:
+    current_app.logger.error(e.args)
+    return make_response('Product "{}" is already registered'.format(name) , 400)
+  
   current_app.logger.info('Record {} was created'.format(rowid))
 
   # Return product
+   # 'one' argument is like fetchone(): returns one row from the query. If the query returned no results, it returns None
+  # db.execute takes a SQL query with ? placeholders for any user input, and a tuple of values to replace the
+  # placeholders with. The database library will take care of escaping the values so you are not vulnerable to
+  # a SQL injection attack.
   product = db.query_db('SELECT * FROM products WHERE name = ?', args=(name,), one=True)
   return make_response(jsonify(product) , 201)
       
+
+@bp.route('/products/<name>', methods = ['GET'])
+def get_product_by_name(name): 
+  '''
+  Return the product by the given name
+  ''' 
+  current_app.logger.info('Request to retrieve data of product "{}" from the catalog'.format(name))
+
+  # Check if product is registered
+  product = db.query_db('SELECT * FROM products WHERE name = ?', args=(name,), one=True)
+  if product is None:
+    return make_response('Product "{}" not found'.format(name), 404)
+
+  # Return product
+  return make_response(jsonify(product), 200)
 
 
 @bp.route('/products/<name>', methods = ['DELETE']) 
@@ -96,10 +107,13 @@ def delete_product(name):
   if product is None:
     return make_response('Product "{}" not found'.format(name), 404)
 
-# TODO try to handle not found from error returned by delete command
-
   # Delete product into database   
-  db.run_db('DELETE FROM products WHERE name = ?', args=(name,))
+  try:
+    db.run_db('DELETE FROM products WHERE name = ?', args=(name,))
+  # Product doesn't exist  
+  except Exception as e:
+    current_app.logger.error(e.args)
+    
   current_app.logger.info('Record {} was deleted'.format(name))
 
   # Return response
@@ -125,16 +139,12 @@ def update_product(name):
   if product is None:
     return make_response('Product "{}" not found'.format(name), 404)
 
-# TODO try to handle not found from error returned by update command
-
   # Extract the properties to update and properties to discard
   mutable_properties = current_app.config['MUTABLE_PRODUCT_PROPERTIES']
-  properties_to_update, properties_rejected = [], []
+  properties_to_update = []
   for prop in data_json.items():
     if prop[0] in mutable_properties:
       properties_to_update.append(prop)
-    else:
-      properties_rejected.append(prop)  
 
   # No property to update
   if properties_to_update == []:
@@ -158,7 +168,6 @@ def update_product(name):
 
   # Return response
   updated_props = ','.join([ '"{}"'.format(k) for k,v in properties_to_update])
-  discarded_props = ','.join([ '"{}"'.format(k) for k,v in properties_rejected])
-  message = 'Product: "{}"\nFields updated: {}\nFields not updated: {}'.format(name, updated_props, discarded_props)
+  message = 'Product: "{}"\nFields updated: {}'.format(name, updated_props)
   return make_response(message , 200)
   

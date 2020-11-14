@@ -64,7 +64,7 @@ paths:
         - "products"
         summary: "Returns the data of a product in the catalog"
         description: ""
-        operationId: "getProductById"
+        operationId: "getProductByName"
         produces:
         - "application/json"
         parameters:
