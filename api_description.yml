@@ -58,7 +58,28 @@ paths:
               $ref: "#/definitions/Product"
         400:
           description: "Invalid product fields"
-  /products/{productName}:        
+  /products/{productName}:  
+    get:
+        tags:
+        - "products"
+        summary: "Returns the data of a product in the catalog"
+        description: ""
+        operationId: "getProductById"
+        produces:
+        - "application/json"
+        parameters:
+        - in: "path"
+          name: "productName"
+          type: "string"
+          description: "Name of the product to return"
+          required: true
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/Product"
+          404:
+            description: "Product not found"      
     put:
       tags:
       - "products"

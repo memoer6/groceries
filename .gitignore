@@ -2,13 +2,13 @@
 
 #Flask-python
 venv/
-backend/flask/instance/
+instance/
 *.pyc
 __pycache__/
 
 
 #Nodejs
-backend/nodejs/node_modules/
+node_modules/
 
 #Java-Springboot
 *.idea/
