@@ -1,5 +1,4 @@
 
-from flask import Flask
 #A Flask application is an instance of the Flask class. Everything about the application, such as 
 # configuration and URLs, will be registered with this class.
 
@@ -13,7 +12,8 @@ from flask import Flask
 # it safely and the __name__ variable will resolve to the correct package.
 # All the view functions (the ones with a route() decorator on top) have to be imported in the __init__.py file.
 # Import the view module after the application object is created.
-
+from flask import Flask
+from config import configs  
 from myapp import routes
 from myapp.extensions import (
   db
@@ -21,7 +21,7 @@ from myapp.extensions import (
 
 
 # Application factory
-def create_app():
+def create_app(env):
 
   # "__name__" is the name of the current Python module. The app needs to know where it’s located to set up
   # some paths, and __name__ is a convenient way to tell it that.
@@ -36,12 +36,14 @@ def create_app():
   # preload the config from a module (module 'default' from package 'config'). You should not use this function 
   # to load the actual configuration but rather configuration defaults. The actual config should be loaded with
   # from_pyfile() and which is located outside myapp package because this package might be installed system wide 
-  app.config.from_object('config.Config')
+  app.config.from_object(configs[env])
+  
   # overrides the default configuration with values taken from the config.py file in the instance folder if
   # it exists. It contains configuration variables that contain sensitive information. The idea is to separate
   # these variables from those above and keep them out of the repository. You may be hiding secrets like database
   # passwords and API keys, or defining variables specific to a given machine. 
-  app.config.from_pyfile('config.py', silent=True)
+  # app.config.from_pyfile('config.py', silent=True)
+ 
   # Configuration based on environment variables:
   # Loads a configuration from an environment variable pointing to a configuration file.
   # The instance folder shouldn’t be in version control. This means that you won’t be able to track changes
@@ -52,7 +54,7 @@ def create_app():
   # This means that we can have several configuration files in our repository and always load the right one
   # The value of the environment variable should be the absolute path to a configuration file.
   # silent – set to True if you want silent failure for missing files
-  app.config.from_envvar('APP_CONFIG_FILE', silent=True)
+  #app.config.from_envvar('APP_CONFIG_FILE', silent=True)
 
   register_extensions(app)
   register_blueprints(app)

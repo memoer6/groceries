@@ -60,7 +60,7 @@ def create_product():
     db.session.commit()
   except Exception as e:
     current_app.logger.error(e.args)
-    if 'sqlite3.IntegrityError' in e.args[0]: 
+    if 'sqlite3.IntegrityError' in e.args[0] or 'psycopg2.errors.UniqueViolation' in e.args[0]: 
       return make_response('Product "{}" is already registered'.format(name) , 400)    
   current_app.logger.info('Product "{}" was saved in database'.format(name))
   # Return product  

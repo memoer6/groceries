@@ -3,15 +3,21 @@ import pytest
 from myapp import create_app
 from myapp.database import db
 from myapp.sqlite3_db import init_app, close_db
+import os
+from environs import Env
 
+
+env = Env()
+env.read_env()
+env_type = 'test'
 
 @pytest.fixture
 def app():
     """Create application for the tests."""
-    _app = create_app()
-    ctx = _app.test_request_context()
+    app = create_app(env_type)
+    ctx = app.test_request_context()
     ctx.push()
-    yield _app
+    yield app
     ctx.pop()
 
 @pytest.fixture
@@ -30,10 +36,10 @@ def client(app):
 @pytest.fixture
 def client2():
     """Create database using sqlite3.py and squema.sql files for the tests."""
-    app = create_app()
+    app = create_app(env)
     with app.test_client() as client:
-      with app.app_context():
-        init_app(app)        
+      with app.app_context():        
+        init_app(app)           
       yield client    
     # Explicitly close DB connection
     
