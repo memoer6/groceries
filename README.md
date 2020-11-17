@@ -14,5 +14,7 @@ flask: This backend consists of a Flask server exposing a REST API to add and re
 stored in local files implementing a sqlite3 database
 
 
+review: https://github.com/cookiecutter-flask
+https://hackersandslackers.com/flask-sqlalchemy-database-models
 
 

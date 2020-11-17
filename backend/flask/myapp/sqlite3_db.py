@@ -23,7 +23,7 @@ def get_db():
       # Since you used an application factory, there is no application object when writing the rest of your
       # code. get_db will be called when the application has been created and is handling a request, so 
       # current_app can be used.
-      current_app.config['DATABASE'],
+      current_app.config['SQLITE3_TEST_DATABASE'],
       detect_types=sqlite3.PARSE_DECLTYPES
     )
     # To simplify working with SQLite, a row factory function is useful. It is executed for every result
@@ -82,6 +82,8 @@ def init_db_command():
   init_db()
   click.echo('Initialized the database.')   
 
+
+# *** NOT USED ***
 # Provide a query function that combines getting the cursor, executing and fetching the results
 def query_db(query, args=(), one=False):
   # create a Cursor object by calling the cursor method of the Connection object
@@ -92,6 +94,7 @@ def query_db(query, args=(), one=False):
   # contain records
   return (resp[0] if resp else None) if one else resp
 
+# *** NOT USED ***
 # Function to run expression that create, update or delete a record in database
 def run_db(sql, args=()):
   # connect to the SQLite database by creating a Connection object.

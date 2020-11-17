@@ -1,19 +1,10 @@
-# Install and run tests with pytest: 
-# source venv/bin/activate   -> activate virtual environment
-# pip install -r requirements.txt    -> install packages 
-# pytest  ->_ run tests
 
-# When we format the filename like test_*.py, it will be auto-discoverable by pytest.
-# Pytest expects our tests to be located in files whose names begin with test_ or end with _test.py.
-
-import os
-import tempfile
 import pytest
-import json
 from urllib.parse import urljoin
-from myapp import create_app, db, models
 
-# Error messages
+URL_PREFIX = '/v1/'
+
+# Messages
 INCORRECT_PRODUCT_JSON = 'Product name is required'
 CREATE_DUPLICATED_PRODUCT = 'Product "{}" is already registered'
 DELETE_PRODUCT_SUCCESSFULLY = 'Product "{}" was deleted successfully'
@@ -23,35 +14,15 @@ UPDATE_PRODUCT_WITHOUT_PROPS = 'No product fields are detected'
 NO_PRODUCT_FIELDS_TO_UPDATE = 'The requested product field(s) cannot be updated'
 
 
-# pytest fixture called client() that configures the application for testing and initializes a new database
-# This client fixture will be called by each individual test. It gives us a simple interface to the application,
-# where we can trigger test requests to the application.
-@pytest.fixture
-def client():
-  '''
-  Returns an empty sqlite3 database
-  '''
-  # Because SQLite3 is filesystem-based, we can easily use the tempfile module to create a temporary database
-  # and initialize it. The mkstemp() function does two things for us: it returns a low-level file handle and
-  # a random file name, the latter we use as database name. We just have to keep the db_fd around so that we
-  # can use the os.close() function to close the file.
-  app = create_app()
-  db_fd, app.config['DATABASE'] = tempfile.mkstemp()
-  # During setup, the TESTING config flag is activated. What this does is disable error catching during
-  # request handling, so that you get better error reports when performing test requests against the application.
-  app.config['TESTING'] = True
-  global URL_PREFIX
-  URL_PREFIX = app.config['URL_PREFIX']
-  with app.test_client() as client:
-      with app.app_context():
-          db.init_db()
-      yield client
-  # To delete the database after the test, the fixture closes the file and removes it from the filesystem.
-  os.close(db_fd)
-  os.unlink(app.config['DATABASE'])
+# Class for pytest unit testing
+class Product_test():
+  def __init__(self, name=None, shopping_cart=0):
+    self.name = name
+    self.shopping_cart = shopping_cart
 
-#def get_json(resp):
-#  return json.loads(resp.data.decode('utf-8'))
+  def to_dict(self):    
+    return self.__dict__
+
 
 def get_products(client, query_params={}):
   # add query params to url if query_params dict is not empty
@@ -81,6 +52,7 @@ def delete_product(client, name=None):
 def update_product(client, name=None, props={}):
   url = urljoin(URL_PREFIX, 'products/{}'.format(name))
   return client.put(url, json=props)
+
 
 # GET PRODUCT TESTS
 
@@ -116,7 +88,7 @@ def test_get_products_with_shop_set_true(client):
   create_product(client, 'bread')
   create_product(client, 'butter')
   update_product(client, 'bread', props={'shopping_cart': 1})
-  bread = models.Product('bread', shopping_cart=1)
+  bread = Product_test('bread', shopping_cart=1)
   for value in ['true', 'True', 'TRUE']:
     resp = get_products(client, query_params={'shop': value})
     assert resp.status_code == 200
@@ -134,7 +106,7 @@ def test_get_products_with_shop_set_false(client):
   create_product(client, 'bread')
   create_product(client, 'butter')
   update_product(client, 'bread', props={'shopping_cart': 1})
-  bread = models.Product('bread', shopping_cart=1)
+  bread = Product_test('bread', shopping_cart=1)
   for value in ['false', 'FALSE', 'False', '1']:
     resp = get_products(client, query_params={'shop': value})
     assert resp.status_code == 200
@@ -160,7 +132,7 @@ THEN the response returns the product object with html code 200 (OK)
 """
 def test_get_product_by_name_with_that_product_in_db(client):
   create_product(client, 'bread')
-  bread = models.Product('bread')
+  bread = Product_test('bread')
   resp = get_product_by_name(client, 'bread') 
   assert resp.status_code == 200
   assert resp.get_json() == bread.to_dict()
@@ -174,7 +146,7 @@ THEN the response returns a product object with html code 201 (Created)
 """
 def test_create_product_from_empty_db(client):
   resp = create_product(client, 'bread')
-  bread = models.Product('bread')
+  bread = Product_test('bread')
   assert resp.status_code == 201
   assert resp.get_json() == bread.to_dict()
 

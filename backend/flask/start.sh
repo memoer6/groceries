@@ -10,7 +10,10 @@ export FLASK_ENV=development
 export APP_CONFIG_FILE=$PWD/config/development.py
 
 # Reset the sqlite3 database
-flask init-db
+#flask init-db
+
+# Create SQLAlchemy database
+#python myapp/sqlalchemy_db.py
 
 # Start the web application for development
 flask run --host=0.0.0.0 --port=8081

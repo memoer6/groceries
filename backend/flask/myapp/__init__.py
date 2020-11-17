@@ -1,7 +1,5 @@
 
 from flask import Flask
-
-
 #A Flask application is an instance of the Flask class. Everything about the application, such as 
 # configuration and URLs, will be registered with this class.
 
@@ -16,6 +14,10 @@ from flask import Flask
 # All the view functions (the ones with a route() decorator on top) have to be imported in the __init__.py file.
 # Import the view module after the application object is created.
 
+from myapp import routes
+from myapp.extensions import (
+  db
+)
 
 
 # Application factory
@@ -34,7 +36,7 @@ def create_app():
   # preload the config from a module (module 'default' from package 'config'). You should not use this function 
   # to load the actual configuration but rather configuration defaults. The actual config should be loaded with
   # from_pyfile() and which is located outside myapp package because this package might be installed system wide 
-  app.config.from_object('config.default')
+  app.config.from_object('config.Config')
   # overrides the default configuration with values taken from the config.py file in the instance folder if
   # it exists. It contains configuration variables that contain sensitive information. The idea is to separate
   # these variables from those above and keep them out of the repository. You may be hiding secrets like database
@@ -52,16 +54,8 @@ def create_app():
   # silent – set to True if you want silent failure for missing files
   app.config.from_envvar('APP_CONFIG_FILE', silent=True)
 
-  # A Blueprint is a way to organize a group of related views and other code. Rather than registering views and
-  # other code directly with an application, they are registered with a blueprint. Then the blueprint is
-  # registered with the application when it is available in the factory function.
-  from . import routes
-  app.register_blueprint(routes.bp, url_prefix=app.config['URL_PREFIX'])
-
-  # Initialize database
-  from . import db 
-  db.init_app(app)
-  
+  register_extensions(app)
+  register_blueprints(app)
   return app
 
 # Configuration:
@@ -74,4 +68,26 @@ def create_app():
 # application package. This makes packaging and distributing your application possible via various package
 # handling tools (Deploying with Setuptools) and finally modifying the configuration file afterwards.
 
+def register_extensions(app):
+  # Initialize database
+  # It’s preferable to create your extensions and app factories so that the extension object does
+  # not initially get bound to the application. Using this design pattern, no application-specific state is
+  # stored on the extension object, so one extension object can be used for multiple apps.  
+  # If you define your application in a function, but the SQLAlchemy object globally, how does the latter 
+  # learn about the former? The answer is the init_app() function. What it does is prepare the application to
+  #  work with SQLAlchemy. However that does not now bind the SQLAlchemy object to your application. 
+  # Why doesn’t it do that? Because there might be more than one application created. So how does SQLAlchemy
+  # come to know about your application? You will have to setup an application context.
+  db.init_app(app)
 
+  with app.app_context():
+    db.create_all()
+ 
+  return None
+
+def register_blueprints(app):
+  # A Blueprint is a way to organize a group of related views and other code. Rather than registering views and
+  # other code directly with an application, they are registered with a blueprint. Then the blueprint is
+  # registered with the application when it is available in the factory function.
+  app.register_blueprint(routes.bp, url_prefix=app.config['URL_PREFIX'])
+  return None

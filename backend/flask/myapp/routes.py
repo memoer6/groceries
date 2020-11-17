@@ -11,13 +11,15 @@
 # will have the same lifetime as a request.
 
 from flask import jsonify, request, make_response, Blueprint, current_app
-from . import db
+#from . import sqlite3_db as db
+from myapp.database import db, Product
 import traceback
+import json
 
 #Instantiate blueprint 
 bp = Blueprint('grocery_list', __name__)
 
-   
+
 @bp.route('/products', methods = ['GET'])
 def get_products(): 
   '''
@@ -27,19 +29,14 @@ def get_products():
   shop = request.args.get('shop', 'false')
   shop = (shop.lower() == 'true')
 
-  # Get product list from database
-  sql = 'SELECT * FROM products'
-  products = db.query_db(sql)
-
   # If query parameter "shop" is True, then only list products to buy in grocery store (shopping_cart = True)
-  if shop:
-    return make_response(jsonify(
-      [ product for product in products if product['shopping_cart'] == True ]),
-      200
-    )
-  return make_response(jsonify(products) , 200)
-
-
+  try:
+    products = Product.query.filter_by(shopping_cart=True) if shop else Product.query.all()
+  except Exception as e:
+    current_app.logger.error(e.args)  
+  
+  # return response
+  return make_response(json.dumps(Product.serialize_list(products)), 200, {'Content-Type': 'application/json'} )
 
 @bp.route('/products', methods = ['POST']) 
 def create_product():
@@ -54,28 +51,20 @@ def create_product():
   # Check that json object is included in payload or "name" attribute is included in json object
   if data_json is None or data_json.get('name', None) is None:
     return make_response('Product name is required' , 400)  
-
   name = data_json.get('name')
 
-  # Create product into database   
-  sql = 'INSERT INTO products (name, shopping_cart) VALUES (?, ?)'
-  args = (data_json['name'], False)
+  # Create product into database  
+  product = Product(name=name, shopping_cart=False)
   try:
-    rowid = db.run_db(sql, args)
-  # Product is already registered  
+    db.session.add(product)
+    db.session.commit()
   except Exception as e:
     current_app.logger.error(e.args)
-    return make_response('Product "{}" is already registered'.format(name) , 400)
-  
-  current_app.logger.info('Record {} was created'.format(rowid))
-
-  # Return product
-   # 'one' argument is like fetchone(): returns one row from the query. If the query returned no results, it returns None
-  # db.execute takes a SQL query with ? placeholders for any user input, and a tuple of values to replace the
-  # placeholders with. The database library will take care of escaping the values so you are not vulnerable to
-  # a SQL injection attack.
-  product = db.query_db('SELECT * FROM products WHERE name = ?', args=(name,), one=True)
-  return make_response(jsonify(product) , 201)
+    if 'sqlite3.IntegrityError' in e.args[0]: 
+      return make_response('Product "{}" is already registered'.format(name) , 400)    
+  current_app.logger.info('Product "{}" was saved in database'.format(name))
+  # Return product  
+  return make_response(json.dumps(product.serialize()) , 201, {'Content-Type': 'application/json'})
       
 
 @bp.route('/products/<name>', methods = ['GET'])
@@ -85,13 +74,17 @@ def get_product_by_name(name):
   ''' 
   current_app.logger.info('Request to retrieve data of product "{}" from the catalog'.format(name))
 
-  # Check if product is registered
-  product = db.query_db('SELECT * FROM products WHERE name = ?', args=(name,), one=True)
+  # Check if product is registered 
+  try:
+    product = Product.query.filter_by(name=name).first()
+  except Exception as e:
+    current_app.logger.error(e.args)
+
   if product is None:
     return make_response('Product "{}" not found'.format(name), 404)
-
+  
   # Return product
-  return make_response(jsonify(product), 200)
+  return make_response(json.dumps(product.serialize()), 200, {'Content-Type': 'application/json'})
 
 
 @bp.route('/products/<name>', methods = ['DELETE']) 
@@ -102,21 +95,19 @@ def delete_product(name):
   '''
   current_app.logger.info('Request to delete product "{}" from the catalog'.format(name))
 
-  # Check if product is registered
-  product = db.query_db('SELECT name FROM products WHERE name = ?', args=(name,), one=True)
-  if product is None:
-    return make_response('Product "{}" not found'.format(name), 404)
-
-  # Delete product into database   
+  # Delete product into database 
   try:
-    db.run_db('DELETE FROM products WHERE name = ?', args=(name,))
-  # Product doesn't exist  
+    result = Product.query.filter_by(name=name).delete()
+    db.session.commit()
   except Exception as e:
     current_app.logger.error(e.args)
-    
-  current_app.logger.info('Record {} was deleted'.format(name))
 
-  # Return response
+  # Product wasn't registered
+  if result == 0:
+    return make_response('Product "{}" not found'.format(name), 404)
+  
+  # Product was deleted successfully
+  current_app.logger.info('Record {} was deleted'.format(name))
   return make_response('Product "{}" was deleted successfully'.format(name) , 200)
 
  
@@ -132,40 +123,35 @@ def update_product(name):
   # Check that json object is included in payload
   data_json = request.get_json(silent=True)
   if data_json is None:
-    return make_response('No product fields are detected' , 400)    
-  
-   # Check if product is registered
-  product = db.query_db('SELECT name FROM products WHERE name = ?', args=(name,), one=True)
-  if product is None:
-    return make_response('Product "{}" not found'.format(name), 404)
+    return make_response('No product fields are detected' , 400)   
 
   # Extract the properties to update and properties to discard
   mutable_properties = current_app.config['MUTABLE_PRODUCT_PROPERTIES']
-  properties_to_update = []
-  for prop in data_json.items():
-    if prop[0] in mutable_properties:
-      properties_to_update.append(prop)
+  properties_to_update = [prop for prop in data_json.items() if prop[0] in mutable_properties]
 
   # No property to update
-  if properties_to_update == []:
-    return make_response('The requested product field(s) cannot be updated', 400)
+  if len(properties_to_update) == 0:
+    return make_response('The requested product field(s) cannot be updated', 400)   
+  
+  # Check if product is registered
+  try:
+    product = Product.query.filter_by(name=name).first()
+  except Exception as e:
+    current_app.logger.error(e.args)
 
-  # Build SQL statement to update product
-  # column_names string represents the set of column names with ? placeholders for the SQL update statement
-  column_names = ''
-  # column_values represents the list of values of the placeholders for the SQL update statement
-  column_values = []
-  for (prop_name, value) in properties_to_update:
-    column_names += '{} = ?,'.format(prop_name) 
-    column_values.append(value)
-  column_names = column_names[:-1] #remove last comma
-  column_values.append(name) # include name for SQL condition (WHERE) 
-  sql = 'UPDATE products SET {} WHERE name = ?'.format(column_names) 
+  if product is None:
+    return make_response('Product "{}" not found'.format(name), 404)
+  
+  # Update product in database    
+  for prop in properties_to_update:
+    key, value = prop
+    setattr(product, key, value)
 
-  # Update product in database  
-  current_app.logger.info('Update SQL statement: {}'.format(sql))
-  db.run_db(sql, args=tuple(column_values))
-
+  try:
+    db.session.commit()  
+  except Exception as e:
+    current_app.logger.error(e.args)  
+    
   # Return response
   updated_props = ','.join([ '"{}"'.format(k) for k,v in properties_to_update])
   message = 'Product: "{}"\nFields updated: {}'.format(name, updated_props)

@@ -1,3 +1,0 @@
-URL_PREFIX='/v1/'
-DATABASE='myapp.db' 
-MUTABLE_PRODUCT_PROPERTIES=['shopping_cart']
