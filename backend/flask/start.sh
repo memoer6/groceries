@@ -13,6 +13,9 @@ export FLASK_APP="$(pwd)/myapp:create_app('$APP_CONFIG_ENV')"
 # a helpful debugger if things go wrong.
 export FLASK_ENV=development
 
+# Create the database or enable migrations if the database already exists
+flask db init
+
 # Set OS environment variable to select the configuration file to load based on the deployment environment
 # export APP_CONFIG_FILE=$PWD/config/development.py
 

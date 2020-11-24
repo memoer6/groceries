@@ -1,6 +1,7 @@
 """Extensions module. Each extension is initialized in the app factory located in app.py."""
 
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
   
 # This extension provides a wrapper for the SQLAlchemy project, which is an Object Relational Mapper or ORM.
@@ -8,3 +9,6 @@ from flask_sqlalchemy import SQLAlchemy
 # on the objects are translated into database commands transparently by the ORM.
 #from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
+
+
+migrate = Migrate()

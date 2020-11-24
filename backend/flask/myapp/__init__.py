@@ -16,7 +16,8 @@ from flask import Flask
 from config import configs  
 from myapp import routes
 from myapp.extensions import (
-  db
+  db,
+  migrate
 )
 
 
@@ -82,8 +83,22 @@ def register_extensions(app):
   # come to know about your application? You will have to setup an application context.
   db.init_app(app)
 
-  with app.app_context():
-    db.create_all()
+  # The database creation is not required inside the application factory method because it's now handled by 
+  # Flask-Migrate library by running "flask db init" command using Flask command-line interface
+  #with app.app_context():
+  #  db.create_all()
+
+  # Flask-Migrate is an extension that handles SQLAlchemy database migrations for Flask applications
+  # using Alembic. The database operations are made available through the Flask command-line interface or 
+  # through the Flask-Script extension. The following example initializes the extension with the standard
+  # Flask command-line interface. With the above application you can create the database or enable 
+  # migrations if the database already exists with the following command: $ flask db init
+  # This will add a migrations folder to your application. The contents of this folder need to be added to
+  # version control along with your other source files. You can then generate an initial migration: $ flask db migrate
+  # The migration script needs to be reviewed and edited, as Alembic currently does not detect every change you
+  # make to your models. Then you can apply the migration to the database: $ flask db upgrade
+  # Then each time the database models change repeat the migrate and upgrade commands.
+  migrate.init_app(app, db)  
  
   return None
 
