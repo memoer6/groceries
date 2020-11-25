@@ -11,8 +11,8 @@
 # will have the same lifetime as a request.
 
 from flask import jsonify, request, make_response, Blueprint, current_app
-#from . import sqlite3_db as db
-from myapp.database import db, Product
+from myapp.database import db
+from myapp.models.product import Product
 import traceback
 import json
 
@@ -31,12 +31,14 @@ def get_products():
 
   # If query parameter "shop" is True, then only list products to buy in grocery store (shopping_cart = True)
   try:
-    products = Product.query.filter_by(shopping_cart=True) if shop else Product.query.all()
+    filter = { 'shopping_cart': True } if shop else None
+    products = Product.find_all(filter) 
   except Exception as e:
     current_app.logger.error(e.args)  
   
   # return response
-  return make_response(json.dumps(Product.serialize_list(products)), 200, {'Content-Type': 'application/json'} )
+  return make_response(json.dumps(products), 200, {'Content-Type': 'application/json'} )
+
 
 @bp.route('/products', methods = ['POST']) 
 def create_product():
@@ -54,17 +56,15 @@ def create_product():
   name = data_json.get('name')
 
   # Create product into database  
-  product = Product(name=name, shopping_cart=False)
   try:
-    db.session.add(product)
-    db.session.commit()
+    product = Product.create(name=name, shopping_cart=False)
   except Exception as e:
-    current_app.logger.error(e.args)
+    current_app.logger.error(e.args[0])
     if 'sqlite3.IntegrityError' in e.args[0] or 'psycopg2.errors.UniqueViolation' in e.args[0]: 
       return make_response('Product "{}" is already registered'.format(name) , 400)    
   current_app.logger.info('Product "{}" was saved in database'.format(name))
   # Return product  
-  return make_response(json.dumps(product.serialize()) , 201, {'Content-Type': 'application/json'})
+  return make_response(json.dumps(product) , 201, {'Content-Type': 'application/json'})
       
 
 @bp.route('/products/<name>', methods = ['GET'])
@@ -76,7 +76,8 @@ def get_product_by_name(name):
 
   # Check if product is registered 
   try:
-    product = Product.query.filter_by(name=name).first()
+    query = { 'name': name }
+    product = Product.find_one(query)
   except Exception as e:
     current_app.logger.error(e.args)
 
@@ -84,7 +85,7 @@ def get_product_by_name(name):
     return make_response('Product "{}" not found'.format(name), 404)
   
   # Return product
-  return make_response(json.dumps(product.serialize()), 200, {'Content-Type': 'application/json'})
+  return make_response(json.dumps(product), 200, {'Content-Type': 'application/json'})
 
 
 @bp.route('/products/<name>', methods = ['DELETE']) 
@@ -97,13 +98,13 @@ def delete_product(name):
 
   # Delete product into database 
   try:
-    result = Product.query.filter_by(name=name).delete()
-    db.session.commit()
+    query = { 'name': name }
+    result = Product.delete_one(query)
   except Exception as e:
     current_app.logger.error(e.args)
 
   # Product wasn't registered
-  if result == 0:
+  if result is None:
     return make_response('Product "{}" not found'.format(name), 404)
   
   # Product was deleted successfully
@@ -127,33 +128,24 @@ def update_product(name):
 
   # Extract the properties to update and properties to discard
   mutable_properties = current_app.config['MUTABLE_PRODUCT_PROPERTIES']
-  properties_to_update = [prop for prop in data_json.items() if prop[0] in mutable_properties]
+  props = {prop:value for (prop,value) in data_json.items() if prop in mutable_properties}
 
   # No property to update
-  if len(properties_to_update) == 0:
+  if not bool(props):
     return make_response('The requested product field(s) cannot be updated', 400)   
   
-  # Check if product is registered
+  # Update product in database  
   try:
-    product = Product.query.filter_by(name=name).first()
-  except Exception as e:
-    current_app.logger.error(e.args)
-
-  if product is None:
-    return make_response('Product "{}" not found'.format(name), 404)
-  
-  # Update product in database    
-  for prop in properties_to_update:
-    key, value = prop
-    setattr(product, key, value)
-
-  try:
-    db.session.commit()  
+    query = { 'name': name }
+    result = Product.update_one(query, props)
   except Exception as e:
     current_app.logger.error(e.args)  
+
+  if result is None:
+    return make_response('Product "{}" not found'.format(name), 404)  
     
   # Return response
-  updated_props = ','.join([ '"{}"'.format(k) for k,v in properties_to_update])
+  updated_props = ','.join([ '"{}"'.format(k) for k,v in props.items()])
   message = 'Product: "{}"\nFields updated: {}'.format(name, updated_props)
   return make_response(message , 200)
   

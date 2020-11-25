@@ -83,8 +83,9 @@ def register_extensions(app):
   # come to know about your application? You will have to setup an application context.
   db.init_app(app)
 
-  # The database creation is not required inside the application factory method because it's now handled by 
-  # Flask-Migrate library by running "flask db init" command using Flask command-line interface
+  # The create_all() method to create the tables and database is not longer required inside the application factory
+  # method because it's now handled by Flask-Migrate library by running "flask db init" command using Flask
+  # command-line interface 
   #with app.app_context():
   #  db.create_all()
 
