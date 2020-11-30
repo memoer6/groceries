@@ -1,22 +1,20 @@
 
 import pytest
 from urllib.parse import urljoin
+import json
 
-URL_PREFIX = '/v1/'
+URL_PREFIX = 'api/v1/'
 
 # Messages
-INCORRECT_PRODUCT_JSON = 'Product name is required'
-CREATE_DUPLICATED_PRODUCT = 'Product "{}" is already registered'
-DELETE_PRODUCT_SUCCESSFULLY = 'Product "{}" was deleted successfully'
-PRODUCT_NOT_FOUND = 'Product "{}" not found'
-UPDATE_PRODUCT_SUCCESSFULLY = 'Product: "{}"\nFields updated: {}'
-UPDATE_PRODUCT_WITHOUT_PROPS = 'No product fields are detected'
-NO_PRODUCT_FIELDS_TO_UPDATE = 'The requested product field(s) cannot be updated'
-
+PRODUCT_NAME_MISSING = "Field 'name' is required"
+CREATE_DUPLICATED_PRODUCT = 'Product {} is already registered'
+PRODUCT_NOT_FOUND = 'Product {} not found'
+NO_PRODUCT_FIELDS_TO_UPDATE = 'No valid fields to update are detected'
+NOT_BOOLEAN_TYPE = 'This value must be boolean'
 
 # Class for pytest unit testing
 class Product_test():
-  def __init__(self, name=None, shopping_cart=0):
+  def __init__(self, name=None, shopping_cart=False):
     self.name = name
     self.shopping_cart = shopping_cart
 
@@ -38,20 +36,19 @@ def get_product_by_name(client, name=None):
   url = urljoin(URL_PREFIX, 'products/{}'.format(name))
   return client.get(url)  
 
-def create_product(client, name=None):
-  url = urljoin(URL_PREFIX, 'products')
+def create_product(client, product):
+  url = urljoin(URL_PREFIX, 'products')  
   # Passing the json argument in the test client methods sets the request data to the JSON-serialized object
   # and sets the content type to application/json. 
-  json_data = {'name': name } 
-  return client.post(url, json=json_data) 
+  return client.post(url, json=product) 
 
 def delete_product(client, name=None):
   url = urljoin(URL_PREFIX, 'products/{}'.format(name))
   return client.delete(url)   
 
-def update_product(client, name=None, props={}):
-  url = urljoin(URL_PREFIX, 'products/{}'.format(name))
-  return client.put(url, json=props)
+def update_product(client, product):
+  url = urljoin(URL_PREFIX, 'products/{}'.format(product['name']))
+  return client.put(url, json=product)
 
 
 # GET PRODUCT TESTS
@@ -72,11 +69,13 @@ GIVEN the product database contains one product
 WHEN a request is sent to get products 
 THEN the response returns a list with one product object and html code 200 (OK) 
 """
-def test_get_products_with_one_prodcut_in_db(client):
-  create_product(client, 'bread')
+def test_get_products_with_one_product_in_db(client):
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
   resp = get_products(client)
   assert resp.status_code == 200
   assert len(resp.get_json()) == 1 
+  assert resp.get_json()[0]['name'] == 'bread'
 
 """
 GIVEN the product database contains two products, one with 'shopping_cart' active and
@@ -85,15 +84,15 @@ WHEN a request is sent to get products with query parameter 'shop' set to True
 THEN the response returns a list with only the product having 'shopping_cart' active and html code 200 (OK) 
 """
 def test_get_products_with_shop_set_true(client):
-  create_product(client, 'bread')
-  create_product(client, 'butter')
-  update_product(client, 'bread', props={'shopping_cart': 1})
-  bread = Product_test('bread', shopping_cart=1)
+  bread = { 'name': 'bread', 'shopping_cart': True}
+  butter = { 'name': 'butter', 'shopping_cart': False}
+  create_product(client, bread)
+  create_product(client, butter)
   for value in ['true', 'True', 'TRUE']:
     resp = get_products(client, query_params={'shop': value})
     assert resp.status_code == 200
     assert len(resp.get_json()) == 1 
-    assert resp.get_json()[0] == bread.to_dict()
+    assert resp.get_json()[0]['shopping_cart'] == True
 
 """
 GIVEN the product database contains two products, one with 'shopping_cart' active and
@@ -103,11 +102,11 @@ THEN the response returns a list with all the products no matter the value of 's
       and html code 200 (OK) 
 """
 def test_get_products_with_shop_set_false(client):
-  create_product(client, 'bread')
-  create_product(client, 'butter')
-  update_product(client, 'bread', props={'shopping_cart': 1})
-  bread = Product_test('bread', shopping_cart=1)
-  for value in ['false', 'FALSE', 'False', '1']:
+  bread = { 'name': 'bread', 'shopping_cart': True}
+  butter = { 'name': 'butter', 'shopping_cart': False}
+  create_product(client, bread)
+  create_product(client, butter)
+  for value in ['false', 'FALSE', 'False']:
     resp = get_products(client, query_params={'shop': value})
     assert resp.status_code == 200
     assert resp.get_json() == get_products(client).get_json() 
@@ -122,7 +121,7 @@ THEN the response returns an error message with html code 404 (Not Found)
 def test_get_product_by_name_from_empty_db(client):
   resp = get_product_by_name(client, 'bread') 
   assert resp.status_code == 404  
-  assert resp.data.decode('utf-8') == PRODUCT_NOT_FOUND.format('bread')
+  assert resp.get_json()['message'] == PRODUCT_NOT_FOUND.format('bread')
 
 
 """
@@ -131,11 +130,12 @@ WHEN a request is sent to get that product by name
 THEN the response returns the product object with html code 200 (OK)  
 """
 def test_get_product_by_name_with_that_product_in_db(client):
-  create_product(client, 'bread')
-  bread = Product_test('bread')
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
+  bread_model = Product_test('bread')
   resp = get_product_by_name(client, 'bread') 
   assert resp.status_code == 200
-  assert resp.get_json() == bread.to_dict()
+  assert resp.get_json() == bread_model.to_dict()
 
 # CREATE PRODUCT TESTS
 
@@ -145,10 +145,11 @@ WHEN a request is sent to create a product with a name
 THEN the response returns a product object with html code 201 (Created) 
 """
 def test_create_product_from_empty_db(client):
-  resp = create_product(client, 'bread')
-  bread = Product_test('bread')
+  bread = { 'name': 'bread'}
+  resp = create_product(client, bread)
+  bread_model = Product_test('bread')
   assert resp.status_code == 201
-  assert resp.get_json() == bread.to_dict()
+  assert resp.get_json() == bread_model.to_dict()
 
 """
 GIVEN the product database is empty 
@@ -159,7 +160,7 @@ def test_create_product_without_body_payload(client):
   url = urljoin(URL_PREFIX, 'products')
   resp = client.post(url)
   assert resp.status_code == 400
-  assert resp.data.decode('utf-8') == INCORRECT_PRODUCT_JSON
+  assert resp.get_json()['message']['name'] == PRODUCT_NAME_MISSING
 
 """
 GIVEN the product database is empty 
@@ -170,7 +171,7 @@ def test_create_product_without_name_property(client):
   url = urljoin(URL_PREFIX, 'products')
   resp = client.post(url, json={'not_a_name': 'whatever'})
   assert resp.status_code == 400
-  assert resp.data.decode('utf-8') == INCORRECT_PRODUCT_JSON
+  assert resp.get_json()['message']['name'] == PRODUCT_NAME_MISSING
 
 """
 GIVEN the product database has one product 
@@ -178,10 +179,22 @@ WHEN a request is sent to create the same product
 THEN the response returns an error message with html code 400 (Bad Request) 
 """
 def test_create_product_with_duplicate_name_in_db(client):
-  create_product(client, 'bread')
-  resp = create_product(client, 'bread')
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
+  resp = create_product(client, bread)
   assert resp.status_code == 400  
-  assert resp.data.decode('utf-8') == CREATE_DUPLICATED_PRODUCT.format('bread')
+  assert resp.get_json()['message'] == CREATE_DUPLICATED_PRODUCT.format('bread')
+
+"""
+GIVEN the product database is empty 
+WHEN a request is sent to create a product with a field "shopping cart" not as a boolean  
+THEN the response returns an error message with html code 400 (Bad Request) 
+"""
+def test_create_product_with_invalid_shopping_cart_type(client):
+  bread = { 'name': 'bread', 'shopping_cart': 'a string' }
+  resp = create_product(client, bread)
+  assert resp.status_code == 400  
+  assert resp.get_json()['message']['shopping_cart'] == NOT_BOOLEAN_TYPE
 
 # DELETE PRODUCT TESTS
 
@@ -192,11 +205,11 @@ THEN the response returns a deleted message with html code 200(OK),
      and database becomes empty
 """
 def test_delete_last_product_in_db(client):
-  create_product(client, 'bread')
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
   delresp = delete_product(client, 'bread')
   getresp = get_products(client)
-  assert delresp.status_code == 200  
-  assert delresp.data.decode('utf-8') == DELETE_PRODUCT_SUCCESSFULLY.format('bread')
+  assert delresp.status_code == 204  
   assert getresp.get_json() == [] 
 
 
@@ -204,15 +217,17 @@ def test_delete_last_product_in_db(client):
 GIVEN the product database has one product 
 WHEN a request is sent to delete another product  
 THEN the response returns an error message with html code 404 (Not Found),
-     and database remains with one product
+     and database remains with the original product
 """
 def test_delete_product_with_nonexistent_name(client):
-  create_product(client, 'bread')
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
   delresp = delete_product(client, 'butter')
   getresp = get_products(client)
-  assert delresp.status_code == 404  
-  assert delresp.data.decode('utf-8') == PRODUCT_NOT_FOUND.format('butter')
+  assert delresp.status_code == 404 
+  assert delresp.get_json()['message'] == PRODUCT_NOT_FOUND.format('butter')
   assert len(getresp.get_json()) == 1 
+  assert getresp.get_json()[0]['name'] == 'bread'
 
 
 # UPDATE PRODUCT TESTS
@@ -220,17 +235,18 @@ def test_delete_product_with_nonexistent_name(client):
 """
 GIVEN the product database has one product 
 WHEN a request is sent to update one mutable property of that product to a new value   
-THEN the response returns an updated message with html code 200 (OK),
+THEN the response returns the updated product with html code 200 (OK),
      and the property in that product changes to the new value
 """
 def test_update_product_with_one_mutable_property(client):
-  create_product(client, 'bread')
-  updresp = update_product(client, 'bread', props={'shopping_cart': 1})
-  getresp = get_products(client)
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
+  bread['shopping_cart'] = True
+  updresp = update_product(client, bread)
+  getresp = get_product_by_name(client, 'bread')
   assert updresp.status_code == 200  
-  assert updresp.data.decode('utf-8') == \
-                UPDATE_PRODUCT_SUCCESSFULLY.format('bread', '"shopping_cart"', '')
-  assert getresp.get_json()[0]['shopping_cart'] == 1 
+  assert updresp.get_json() == getresp.get_json()
+  assert getresp.get_json()['shopping_cart'] == True 
 
 """
 GIVEN the product database has one product 
@@ -238,11 +254,12 @@ WHEN a request is sent to update a product without json properties in body
 THEN the response returns an error message with html code 400 (Bad Request) 
 """
 def test_update_product_without_body_payload(client):
-  create_product(client, 'bread')
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
   url = urljoin(URL_PREFIX, 'products/bread')
   resp = client.put(url)
   assert resp.status_code == 400
-  assert resp.data.decode('utf-8') == UPDATE_PRODUCT_WITHOUT_PROPS
+  assert resp.get_json()['message'] == NO_PRODUCT_FIELDS_TO_UPDATE
 
 
 """
@@ -252,11 +269,13 @@ THEN the response returns an error message with html code 400 (Bad Request),
     and the property in that product doesn't change to a new value 
 """
 def test_update_product_with_one_immutable_property(client):
-  create_product(client, 'bread')  
-  updresp = update_product(client, 'bread', props={'name': 'butter'})
+  bread = { 'name': 'bread'}
+  create_product(client, bread) 
+  bread['name'] = 'butter'
+  updresp = update_product(client, bread)
   getresp = get_products(client)
   assert updresp.status_code == 400  
-  assert updresp.data.decode('utf-8') == NO_PRODUCT_FIELDS_TO_UPDATE
+  assert updresp.get_json()['message'] == NO_PRODUCT_FIELDS_TO_UPDATE
   assert getresp.get_json()[0]['name'] == 'bread' 
 
 
@@ -266,10 +285,12 @@ WHEN a request is sent to update one nonexistent property of that product to a n
 THEN the response returns an error message with html code 400 (Bad Request)
 """
 def test_update_product_with_one_nonexistent_property(client):
-  create_product(client, 'bread')  
-  resp = update_product(client, 'bread', props={'nonexistent_field': 'whatever_value'})
+  bread = { 'name': 'bread'}
+  create_product(client, bread) 
+  bread['nonexistent_field'] = 'whatever value'
+  resp = update_product(client, bread)
   assert resp.status_code == 400  
-  assert resp.data.decode('utf-8') == NO_PRODUCT_FIELDS_TO_UPDATE
+  assert resp.get_json()['message'] == NO_PRODUCT_FIELDS_TO_UPDATE
 
 
 """
@@ -278,25 +299,38 @@ WHEN a request is sent to update another product
 THEN the response returns an error message with html code 404 (Not Found)
 """
 def test_update_product_with_nonexistent_name(client):
-  create_product(client, 'bread')
-  resp = update_product(client, 'butter', props={'shopping_cart': 1})
+  bread = { 'name': 'bread'}
+  create_product(client, bread)
+  butter = { 'name': 'butter', 'shopping_cart': True}
+  resp = update_product(client, butter)
   assert resp.status_code == 404  
-  assert resp.data.decode('utf-8') == PRODUCT_NOT_FOUND.format('butter')
+  assert resp.get_json()['message'] == PRODUCT_NOT_FOUND.format('butter')
 
 """
 GIVEN the product database has one product 
 WHEN a request is sent to update the value of two properties of that product: one nonexistent 
      and one mutable  
-THEN the response returns an update message with html code 200 (OK) indicating the property 
-     that was updated
+THEN the response returns the updated product with html code 200 (OK) ignoring nonexistent properties
 """
 def test_update_product_with_one_nonexistent_and_one_mutable_properties(client):
-  create_product(client, 'bread')  
-  props = {
-    'shopping_cart': 1,
-    'nonexistent_field': 'whatever_value'
-  }
-  resp = update_product(client, 'bread', props=props)
+  bread = { 'name': 'bread'}
+  create_product(client, bread) 
+  bread['shopping_cart'] = True
+  bread['nonexistent_field'] = 'whatever_value'
+  resp = update_product(client, bread)
   assert resp.status_code == 200  
-  assert resp.data.decode('utf-8') == \
-          UPDATE_PRODUCT_SUCCESSFULLY.format('bread', '"shopping_cart"', '"nonexistent_field"')
+  assert resp.get_json()['shopping_cart'] == True
+  assert 'nonexistent_field' not in resp.get_json()
+
+"""
+GIVEN the product database has one product 
+WHEN a request is sent to update "shopping cart" field without a boolean value 
+THEN the response returns an error message with html code 400 (Bad Request) 
+"""
+def test_update_product_with_invalid_shopping_cart_type(client):
+  bread = { 'name': 'bread' }
+  create_product(client, bread)
+  bread['shopping_cart'] = 'a string'
+  resp = update_product(client, bread)
+  assert resp.status_code == 400  
+  assert resp.get_json()['message']['shopping_cart'] == NOT_BOOLEAN_TYPE

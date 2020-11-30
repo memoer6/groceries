@@ -14,7 +14,7 @@
 # Import the view module after the application object is created.
 from flask import Flask
 from config import configs  
-from myapp import routes
+from myapp import routes, resources
 from myapp.extensions import (
   db,
   migrate
@@ -100,7 +100,7 @@ def register_extensions(app):
   # make to your models. Then you can apply the migration to the database: $ flask db upgrade
   # Then each time the database models change repeat the migrate and upgrade commands.
   migrate.init_app(app, db)  
- 
+
   return None
 
 def register_blueprints(app):
@@ -108,4 +108,8 @@ def register_blueprints(app):
   # other code directly with an application, they are registered with a blueprint. Then the blueprint is
   # registered with the application when it is available in the factory function.
   app.register_blueprint(routes.bp, url_prefix=app.config['URL_PREFIX'])
+
+  # Blueprint for groceries API
+  app.register_blueprint(resources.api_bp, url_prefix=app.config['URL_PREFIX_API'])
+
   return None

@@ -9,7 +9,7 @@ from environs import Env
 
 env = Env()
 env.read_env()
-env_type = 'test'
+env_type = 'dev'
 
 @pytest.fixture
 def app():

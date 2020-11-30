@@ -44,6 +44,7 @@ class Product(Model):
 
   @staticmethod
   def delete_one(query=None):
+    ''' delete a product from the database matching the query condition '''
     product = Product.query.filter_by(**query).first()
     if product is not None:      
       return product.delete()
@@ -51,6 +52,7 @@ class Product(Model):
 
   @staticmethod
   def update_one(query=None, props=None):
+    ''' update fields of a product from the database matching the query condition '''
     product = Product.query.filter_by(**query).first()
     if product is not None:
       return product.update(**props) 

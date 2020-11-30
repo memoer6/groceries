@@ -9,5 +9,5 @@ from flask_migrate import Migrate
 # on the objects are translated into database commands transparently by the ORM.
 #from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
-
+# Flask-Migrate is an extension that handles SQLAlchemy database migrations for Flask applications using Alembic
 migrate = Migrate()

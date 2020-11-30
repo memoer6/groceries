@@ -10,7 +10,7 @@
 # request ends it pops the request context then the application context. Typically, an application context
 # will have the same lifetime as a request.
 
-from flask import jsonify, request, make_response, Blueprint, current_app
+from flask import request, make_response, Blueprint, current_app
 from myapp.database import db
 from myapp.models.product import Product
 import traceback
@@ -34,7 +34,8 @@ def get_products():
     filter = { 'shopping_cart': True } if shop else None
     products = Product.find_all(filter) 
   except Exception as e:
-    current_app.logger.error(e.args)  
+    current_app.logger.error(e.args) 
+    return make_response('Cannot complete the operation', 500) 
   
   # return response
   return make_response(json.dumps(products), 200, {'Content-Type': 'application/json'} )
@@ -61,7 +62,9 @@ def create_product():
   except Exception as e:
     current_app.logger.error(e.args[0])
     if 'sqlite3.IntegrityError' in e.args[0] or 'psycopg2.errors.UniqueViolation' in e.args[0]: 
-      return make_response('Product "{}" is already registered'.format(name) , 400)    
+      return make_response('Product "{}" is already registered'.format(name) , 400) 
+    else:
+      return make_response('Cannot complete the operation', 500)      
   current_app.logger.info('Product "{}" was saved in database'.format(name))
   # Return product  
   return make_response(json.dumps(product) , 201, {'Content-Type': 'application/json'})
@@ -80,8 +83,10 @@ def get_product_by_name(name):
     product = Product.find_one(query)
   except Exception as e:
     current_app.logger.error(e.args)
+    return make_response('Cannot complete the operation', 500) 
 
   if product is None:
+    current_app.logger.info('Product "{}" not found'.format(name))
     return make_response('Product "{}" not found'.format(name), 404)
   
   # Return product
@@ -102,9 +107,11 @@ def delete_product(name):
     result = Product.delete_one(query)
   except Exception as e:
     current_app.logger.error(e.args)
+    return make_response('Cannot complete the operation', 500) 
 
   # Product wasn't registered
   if result is None:
+    current_app.logger.info('Product "{}" not found'.format(name))
     return make_response('Product "{}" not found'.format(name), 404)
   
   # Product was deleted successfully
@@ -140,8 +147,10 @@ def update_product(name):
     result = Product.update_one(query, props)
   except Exception as e:
     current_app.logger.error(e.args)  
+    return make_response('Cannot complete the operation', 500) 
 
   if result is None:
+    current_app.logger.info('Product "{}" not found'.format(name))
     return make_response('Product "{}" not found'.format(name), 404)  
     
   # Return response

@@ -15,10 +15,9 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 class Config:
   # API service setting
   URL_PREFIX='/v1/'
+  URL_PREFIX_API='/api/v1/'
 
-  # Groccery list application settings
-  MUTABLE_PRODUCT_PROPERTIES=['shopping_cart']
-
+  
   # When set to 'True', Flask-SQLAlchemy will log all database activity to Python's stderr for debugging purposes.
   SQLALCHEMY_ECHO = False 
   #If set to True, Flask-SQLAlchemy will track modifications of objects and emit signals. The default is None,
