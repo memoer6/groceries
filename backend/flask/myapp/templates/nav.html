@@ -1,0 +1,16 @@
+<nav>
+  Products: 
+  <a href="{{ url_for('products.list') }}">List</a>
+  <a href="{{ url_for('products.create') }}">Create</a> 
+  <a href="{{ url_for('products.shop') }}">Shop</a>     
+</nav>
+<hr>
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<ul>
+    {% for message in messages %}
+    <li>{{ message }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endwith %}

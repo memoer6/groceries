@@ -12,6 +12,5 @@ flask: This backend consists of a Flask server exposing a REST API to add and re
 
 
 review: https://github.com/cookiecutter-flask
-https://hackersandslackers.com/flask-sqlalchemy-database-models
 
 

@@ -1,0 +1,15 @@
+<!-- Not working -->
+{% extends "list.html" %} 
+
+{% block products %}
+
+  <h1>Products Catalog</h1>
+  {% for product in products %}
+    <ul>
+      <li>{{ product.name }}</li>
+    </ul>
+  {% endfor %}  
+
+  <button type="button">Add Product</button>
+
+{% endblock %}

@@ -1,7 +1,12 @@
 
-from flask_restful import Resource, fields, marshal_with, abort, reqparse, inputs
-from flask import current_app
-from myapp.models.product import Product as ProductDao
+from flask_restful import Resource, fields, marshal_with, abort, reqparse, inputs, Api
+from flask import current_app, Blueprint
+from myapp.blueprints.product.models import Product as ProductDao
+
+
+api_bp = Blueprint('api', __name__)
+api = Api(api_bp)
+
 
 # Output fields
 # Flask-RESTful provides an easy way to control what data you actually render in your response. With the fields
@@ -161,3 +166,4 @@ class ProductList(Resource):
     current_app.logger.info('Product "{}" was saved in database'.format(name))
     # Return product  
     return product, 201  
+

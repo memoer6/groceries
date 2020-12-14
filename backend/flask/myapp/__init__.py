@@ -14,7 +14,7 @@
 # Import the view module after the application object is created.
 from flask import Flask
 from config import configs  
-from myapp import routes, resources
+from myapp.blueprints import product
 from myapp.extensions import (
   db,
   migrate
@@ -107,9 +107,9 @@ def register_blueprints(app):
   # A Blueprint is a way to organize a group of related views and other code. Rather than registering views and
   # other code directly with an application, they are registered with a blueprint. Then the blueprint is
   # registered with the application when it is available in the factory function.
-  app.register_blueprint(routes.bp, url_prefix=app.config['URL_PREFIX'])
+  app.register_blueprint(product.views.bp)
 
   # Blueprint for groceries API
-  app.register_blueprint(resources.api_bp, url_prefix=app.config['URL_PREFIX_API'])
+  app.register_blueprint(product.resources.api_bp, url_prefix=app.config['URL_PREFIX_API'])
 
   return None
