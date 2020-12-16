@@ -1,8 +1,10 @@
 <nav>
-  Products: 
-  <a href="{{ url_for('products.list') }}">List</a>
-  <a href="{{ url_for('products.create') }}">Create</a> 
-  <a href="{{ url_for('products.shop') }}">Shop</a>     
+  <div class="navigation">
+    Products: 
+    <a href="{{ url_for('products.list') }}">List</a>
+    <a href="{{ url_for('products.create') }}">Create</a> 
+    <a href="{{ url_for('products.shop') }}">Shop</a> 
+  </div>
 </nav>
 <hr>
 {% with messages = get_flashed_messages() %}

@@ -1,4 +1,8 @@
 
+body {
+  font-family: Helvetica, sans-serif;
+}
+
 table {
   font-family: arial, sans-serif;
   border-collapse: collapse;
@@ -15,3 +19,51 @@ tr:nth-child(even) {
   background-color: #dddddd;
 }
 
+.productForm {
+  background-color: #f2f2f2;
+  padding: 20px;
+  border-radius: 5px;
+}
+
+input {
+  margin: 10px 20px;  
+}
+
+input[type=text] {
+  width: 100%;
+  padding: 5px 20px;
+  margin: 6px 0;
+  display: inline-block;
+  border: 1px solid #ccc;	
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+input[type=checkbox] {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+}
+
+input[type=submit] {
+  width: 100%;
+  background-color: #CDCEF6;
+  color: black;
+  padding: 14px 20px;
+  margin: 6px 0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+input[type=submit]:hover {
+  background-color: #C0C1F6;
+}
+
+nav {
+  padding: 10px;
+}
+
+nav a {
+  padding: 10px;
+}
